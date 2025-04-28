@@ -130,6 +130,9 @@ instance (a b : PreChain) : Decidable (a ≈ b) := by
 
 abbrev Chain := Quotient PreChainSetoid
 
+instance : DecidableEq Chain := by
+  intro _ _
+  infer_instance
 
 instance : Coe PreChain Chain where
   coe := Quotient.mk'
@@ -184,8 +187,9 @@ abbrev lv (chains : List PreChain) (itemMap : ItemMap) : Level where
 
 opaque beatable (level: Level) : Prop
 
-axiom Axiom1 (level : Level) (chain : PreChain) (h0 : chain.first = 0) (hω : chain.last = ω)
-    (hlock : chain.lockless) (hmem : ⟦chain⟧ ∈ level.chains) : beatable level
+axiom Axiom1 (chain : PreChain) (itemMap : ItemMap)
+  (h0 : chain.first = 0) (hω : chain.last = ω) (hlock : chain.lockless) :
+  beatable (lv [chain] itemMap)
 
 axiom Rule1_1 (level : Level) (h : beatable level) (chain : PreChain) :
   beatable {
@@ -207,13 +211,57 @@ axiom Rule1_3 (level : Level) (h : beatable level) (a b : PreChain) (hab : a.las
     itemMap := level.itemMap
   }
 
+
+lemma Lemma1 (level : Level) (chain : PreChain) (h0 : chain.first = 0) (hω : chain.last = ω)
+    (hlock : chain.lockless) (hmem : ⟦chain⟧ ∈ level.chains) : beatable level := by
+  if h : level.chains == [ (chain : Chain) ] then
+    convert Axiom1 chain level.itemMap h0 hω hlock
+    simp only [Multiset.coe_singleton, beq_iff_eq] at h
+    unfold lv
+    simp [← h]
+  else
+    let rest_chains := level.chains.erase ⟦chain⟧
+    have rest_nonempty : rest_chains ≠ ∅ := by
+      unfold rest_chains
+      contrapose! h with hempty
+      simp only [Multiset.coe_singleton, beq_iff_eq]
+      obtain hmem' := Multiset.cons_erase hmem
+      rw [hempty] at hmem'
+      rw [← hmem']
+      simp only [Multiset.empty_eq_zero, Multiset.cons_zero, Multiset.singleton_inj]
+      rfl
+    obtain ⟨another, ha⟩ := Multiset.exists_mem_of_ne_zero rest_nonempty
+    obtain hrec := Lemma1 {
+      chains := level.chains.erase another
+      itemMap := level.itemMap
+    } chain h0 hω hlock (by
+      simp only
+      by_cases heq : chain = another
+      · rw [← heq] at ⊢ ha
+        unfold rest_chains at ha
+        exact ha
+      · exact (Multiset.mem_erase_of_ne heq).mpr hmem
+    )
+    convert Rule1_1 _ hrec another.out
+    simp
+    symm
+    have anotherrw : Quotient.mk' (Quotient.out another) = another := by
+      exact Quotient.out_eq another
+    rw [anotherrw]
+    apply Multiset.cons_erase
+    exact Multiset.mem_of_mem_erase ha
+termination_by level.chains.card
+decreasing_by
+  apply Multiset.card_erase_lt_of_mem
+  exact Multiset.mem_of_mem_erase ha
+
 theorem Prop1_1 : beatable (lv [($0 ~~ 1 ~~ 2 ~~ ω)] ∅) := by
-  apply Axiom1 _ ($0 ~~ 1 ~~ 2 ~~ ω)
+  apply Lemma1 _ ($0 ~~ 1 ~~ 2 ~~ ω)
   all_goals decide
 
 theorem Prop1_2 : beatable (lv [($2 ~~ 1 ~~ 0 ~~ ω ~~ 3)] ∅) := by
   have h : beatable (lv [($2 ~~ 1 ~~ 0 ~~ ω ~~ 3), ($0 ~~ ω)] ∅) := by
-    apply Axiom1 _ ($0 ~~ ω)
+    apply Lemma1 _ ($0 ~~ ω)
     all_goals decide
   convert Rule1_2 _ h ($0 ~~ ω) ($2 ~~ 1 ~~ 0 ~~ ω ~~ 3) (by decide) (by decide)
 
@@ -242,7 +290,7 @@ theorem Prop1_4 : beatable (lv [($2 ~~ 6 ~~ 2), ($0 ~~ 1 ~~ 2 ~~ 3), ($4 ~~ 5 ~~
     decide
   suffices beatable (lv [($0 ~~ 1 ~~ 2 ~~ 6 ~~ 7 ~~ ω)] ∅) by
     convert Rule1_3 _ this ($0 ~~ 1 ~~ 2 ~~ 6) ($6 ~~ 7 ~~ ω) (by decide) (by decide)
-  apply Axiom1 _ ($0 ~~ 1 ~~ 2 ~~ 6 ~~ 7 ~~ ω)
+  apply Lemma1 _ ($0 ~~ 1 ~~ 2 ~~ 6 ~~ 7 ~~ ω)
   all_goals decide
 
 
@@ -286,14 +334,14 @@ theorem Prop2_1 : beatable (lv [($1 ~~ 2), ($0 ~~ 1 ~L(0)~2 ~~ ω)] ∅) := by
   suffices beatable (lv [($0 ~~ 1 ~~ 2 ~~ ω), ($0 ~~ 1 ~L(0)~ 2 ~~ ω)] ∅) by
     convert Rule1_3 _ this ($0 ~~ 1 ~~ 2) ($2 ~~ ω) (by decide) (by decide)
     decide
-  apply Axiom1 _ ($0 ~~ 1 ~~ 2 ~~ ω)
+  apply Lemma1 _ ($0 ~~ 1 ~~ 2 ~~ ω)
   all_goals decide
 
 theorem Prop2_2 : beatable (lv [($0 ~~ 1 ~~ 2 ~~ 3 ~L(0)~ ω)] <| im [(2, [K(0)])]) := by
   suffices beatable (lv [($0 ~~ 1 ~~ 2 ~~ 3 ~L(0)~ ω), ($0 ~~ 1 ~~ 2)] <| im [(2, [K(0)])]) by
     convert Rule1_2 _ this ($0 ~~ 1 ~~ 2) ($0 ~~ 1 ~~ 2 ~~ 3 ~L(0)~ ω) (by decide) (by decide)
   have h : beatable (lv [($0 ~~ 1 ~~ 2 ~~ 3 ~~ ω), ($0 ~~ 1 ~~ 2)] <| im [(2, [K(0)])]) := by
-    apply Axiom1 _ ($0 ~~ 1 ~~ 2 ~~ 3 ~~ ω)
+    apply Lemma1 _ ($0 ~~ 1 ~~ 2 ~~ 3 ~~ ω)
     all_goals decide
   convert Rule2_1 _ h ($0 ~~ 1 ~~ 2) ($0 ~~ 1 ~~ 2 ~~ 3 ~~ ω) 0 3 (by decide) (by decide)
     (by decide) (by decide) (by decide)
@@ -310,7 +358,7 @@ theorem Prop2_3 : beatable (lv [($2 ~~ 4), ($0 ~~ 1 ~~ 2 ~L(0)~ 3 ~L(0)~ ω)] <|
     convert Rule2_1 _ this ($0 ~~ 1 ~~ 2 ~~ 4) ($0 ~~ 1 ~~ 2 ~~ 3 ~~ ω) 0 3
       (by decide) (by decide) (by decide) (by decide) (by decide)
     decide
-  apply Axiom1 _ ($0 ~~ 1 ~~ 2 ~~ 3 ~~ ω)
+  apply Lemma1 _ ($0 ~~ 1 ~~ 2 ~~ 3 ~~ ω)
   all_goals decide
 
 theorem Prop2_4 :
@@ -334,7 +382,7 @@ theorem Prop2_4 :
       <| im [(3, [K(1)]), (5, [K(0)])]) by
     convert Rule2_1 _ this ($0 ~~ 1 ~~ 2 ~~ 4 ~~ 5) ($0 ~~ 1 ~~ 2 ~~ 3 ~~ ω) 0 3
       (by decide) (by decide) (by decide) (by decide) (by decide)
-  apply Axiom1 _ ($0 ~~ 1 ~~ 2 ~~ 3 ~~ ω)
+  apply Lemma1 _ ($0 ~~ 1 ~~ 2 ~~ 3 ~~ ω)
   all_goals decide
 
 theorem Prop2_5 :
@@ -366,7 +414,7 @@ theorem Prop2_5 :
   suffices beatable (lv [($0 ~~ 1 ~~ 2 ~L(0)~ 3 ~L(0)~ ω), ($0 ~~ 1 ~~ 2 ~~ 3 ~~ ω)] ∅) by
     convert Rule1_3 _ this ($0 ~~ 1 ~~ 2 ~~ 3) ($3 ~~ ω) (by decide) (by decide)
     decide
-  apply Axiom1 _ ($0 ~~ 1 ~~ 2 ~~ 3 ~~ ω)
+  apply Lemma1 _ ($0 ~~ 1 ~~ 2 ~~ 3 ~~ ω)
   all_goals decide
 
 theorem Prop2_6 :
@@ -388,7 +436,7 @@ theorem Prop2_6 :
   suffices beatable (lv [($2 ~~ 4), ($0 ~~ 1 ~~ 2 ~L(0)~ ω), ($0 ~~ 1 ~~ 2 ~~ ω), ($0 ~~ 1 ~~ 2)] ∅) by
     convert Rule1_3 _ this ($0 ~~ 1 ~~ 2) ($2 ~~ ω) (by decide) (by decide)
     decide
-  apply Axiom1 _ ($0 ~~ 1 ~~ 2 ~~ ω)
+  apply Lemma1 _ ($0 ~~ 1 ~~ 2 ~~ ω)
   all_goals decide
 
 theorem Prop2_7 :
@@ -433,5 +481,54 @@ theorem Prop2_8 :  -- second prop
   suffices beatable (lv [($0 ~~ 1 ~~ 2 ~~ ω), ($0 ~~ 1 ~~ 4)] <| im [(4, [K(0)])]) by
     convert Rule2_1 _ this ($0 ~~ 1 ~~ 4) ($0 ~~ 1 ~~ 2 ~~ ω) 0 2
       (by decide) (by decide) (by decide) (by decide) (by decide)
-  apply Axiom1 _ ($0 ~~ 1 ~~ 2 ~~ ω)
+  apply Lemma1 _ ($0 ~~ 1 ~~ 2 ~~ ω)
   all_goals decide
+
+axiom Axiom2 (a b : PreChain) (itemMap : ItemMap) (hab : a.nodes.inter b.nodes = [])
+  (ha : 0 ∉ a.nodes ∨ ω ∉ a.nodes) (ha : 0 ∉ b.nodes ∨ ω ∉ b.nodes) :
+  ¬ beatable (lv [a, b] itemMap)
+
+theorem Prop3_1 : ¬ beatable (lv [($1 ~~ 2), ($3 ~~ 4)] ∅) := by
+  apply Axiom2 ($1 ~~ 2) ($3 ~~ 4) _
+  all_goals decide
+
+theorem Prop3_2 : ¬ beatable (lv [($0 ~~ 1 ~~ 2), ($3 ~~ 4 ~L(0)~ ω)] <| im [(2, [K(0)])]) := by
+  apply Axiom2 ($0 ~~ 1 ~~ 2) ($3 ~~ 4 ~L(0)~ ω) _
+  all_goals decide
+
+theorem Prop3_3 : ¬ beatable (lv [] ∅) := by
+  obtain h := Axiom2 ($100) ($12345) ∅ (by decide) (by decide) (by decide)
+  contrapose! h with h1
+  obtain h2 := Rule1_1 _ h1 ($100)
+  convert Rule1_1 _ h2 ($12345)
+  decide
+
+theorem Prop3_4 : ¬ beatable (lv [($4 ~~ ω), ($6 ~~ 5 ~~ 7), ($0 ~~ 1 ~~ 2 ~~ 3)] ∅) := by
+  by_contra! h1
+  have h2 : beatable (lv [($4 ~~ ω), ($6 ~~ 5 ~~ 7), ($0 ~~ 1 ~~ 2 ~~ 3), ($0 ~~ 1 ~~ 2 ~~ 3 ~~ 6 ~~ 5 ~~ 7)] ∅) := by
+    convert Rule1_1 _ h1 ($0 ~~ 1 ~~ 2 ~~ 3 ~~ 6 ~~ 5 ~~ 7)
+    decide
+  have h3 : beatable (lv [($4 ~~ ω), ($0 ~~ 1 ~~ 2 ~~ 3), ($0 ~~ 1 ~~ 2 ~~ 3 ~~ 6 ~~ 5 ~~ 7)] ∅) := by
+    convert Rule1_2 _ h2 ($6 ~~ 5 ~~ 7) ($0 ~~ 1 ~~ 2 ~~ 3 ~~ 6 ~~ 5 ~~ 7) (by decide) (by decide)
+  have h4 : beatable (lv [($4 ~~ ω), ($0 ~~ 1 ~~ 2 ~~ 3 ~~ 6 ~~ 5 ~~ 7)] ∅) := by
+    convert Rule1_2 _ h3 ($0 ~~ 1 ~~ 2 ~~ 3) ($0 ~~ 1 ~~ 2 ~~ 3 ~~ 6 ~~ 5 ~~ 7) (by decide) (by decide)
+  have h : ¬ beatable (lv [($4 ~~ ω), ($0 ~~ 1 ~~ 2 ~~ 3 ~~ 6 ~~ 5 ~~ 7)] ∅) :=
+    Axiom2 _ _ _ (by decide) (by decide) (by decide)
+  contradiction
+
+theorem Prop3_5 : ¬ beatable (lv [($5 ~~ 6), ($7 ~~ ω), ($0 ~~ 2 ~~ 3), ($1 ~~ 2 ~~ 4)] ∅) := by
+  obtain h := Axiom2 ($5 ~~ 6 ~~ 7 ~~ ω) ($0 ~~ 2 ~~ 3 ~~ 1 ~~ 2 ~~ 4) ∅ (by decide) (by decide) (by decide)
+  contrapose! h with h1
+  suffices beatable (lv [($5 ~~ 6 ~~ 7 ~~ ω), ($0 ~~ 2 ~~ 3 ~~ 1 ~~ 2 ~~ 4), ($5 ~~ 6)] ∅) by
+    convert Rule1_2 _ this ($5 ~~ 6) ($5 ~~ 6 ~~ 7 ~~ ω) (by decide) (by decide)
+  suffices beatable (lv [($5 ~~ 6 ~~ 7 ~~ ω), ($0 ~~ 2 ~~ 3 ~~ 1 ~~ 2 ~~ 4), ($5 ~~ 6), ($7 ~~ ω)] ∅) by
+    convert Rule1_2 _ this ($7 ~~ ω) ($5 ~~ 6 ~~ 7 ~~ ω) (by decide) (by decide)
+  suffices beatable (lv [($0 ~~ 2 ~~ 3 ~~ 1 ~~ 2 ~~ 4), ($5 ~~ 6), ($7 ~~ ω)] ∅) by
+    convert Rule1_1 _ this ($5 ~~ 6 ~~ 7 ~~ ω)
+  suffices beatable (lv [($0 ~~ 2 ~~ 3 ~~ 1 ~~ 2 ~~ 4), ($5 ~~ 6), ($7 ~~ ω), ($0 ~~ 2 ~~ 3)] ∅) by
+    convert Rule1_2 _ this ($0 ~~ 2 ~~ 3) ($0 ~~ 2 ~~ 3 ~~ 1 ~~ 2 ~~ 4) (by decide) (by decide)
+  suffices beatable (lv [($0 ~~ 2 ~~ 3 ~~ 1 ~~ 2 ~~ 4), ($5 ~~ 6), ($7 ~~ ω), ($0 ~~ 2 ~~ 3), ($1 ~~ 2 ~~ 4)] ∅) by
+    convert Rule1_2 _ this ($1 ~~ 2 ~~ 4) ($0 ~~ 2 ~~ 3 ~~ 1 ~~ 2 ~~ 4) (by decide) (by decide)
+  suffices beatable (lv [($5 ~~ 6), ($7 ~~ ω), ($0 ~~ 2 ~~ 3), ($1 ~~ 2 ~~ 4)] ∅) by
+    convert Rule1_1 _ this ($0 ~~ 2 ~~ 3 ~~ 1 ~~ 2 ~~ 4)
+  exact h1
