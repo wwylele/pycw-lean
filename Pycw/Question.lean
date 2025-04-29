@@ -1,6 +1,15 @@
 import Pycw.Axiom
 
+/-!
+In this file we solve problems in the game
+-/
 
+/--
+This lemma isn't directly answering any questions, but it combines the power of Axiom1 and Rule1_1,
+which allows one to quickly close the goal when a path is clear.
+
+This also serves as a example of using higher level reasoning such as induction.
+-/
 lemma Lemma1 (level : Level) (chain : PreChain) (h0 : chain.first = 0) (hω : chain.last = ω)
     (hlock : chain.lockless) (hmem : ⟦chain⟧ ∈ level.chains) : beatable level := by
   if h : level.chains == [ (chain : Chain) ] then
@@ -44,6 +53,9 @@ decreasing_by
   apply Multiset.card_erase_lt_of_mem
   exact Multiset.mem_of_mem_erase ha
 
+/--!
+Chapter 1
+-/
 theorem Prop1_1 : beatable (lv [($0 ~~ 1 ~~ 2 ~~ ω)] ∅) := by
   apply Lemma1 _ ($0 ~~ 1 ~~ 2 ~~ ω)
   all_goals decide
@@ -82,10 +94,11 @@ theorem Prop1_4 : beatable (lv [($2 ~~ 6 ~~ 2), ($0 ~~ 1 ~~ 2 ~~ 3), ($4 ~~ 5 ~~
   apply Lemma1 _ ($0 ~~ 1 ~~ 2 ~~ 6 ~~ 7 ~~ ω)
   all_goals decide
 
+/--!
+Chapter 2
+-/
 
-
-
-theorem Prop2_1 : beatable (lv [($1 ~~ 2), ($0 ~~ 1 ~L(0)~2 ~~ ω)] ∅) := by
+theorem Prop2_1 : beatable (lv [($1 ~~ 2), ($0 ~~ 1 ~L(0)~ 2 ~~ ω)] ∅) := by
   suffices beatable (lv [($1 ~~ 2), ($0 ~~ 1 ~L(0)~ 2 ~~ ω), ($0 ~~ 1)] ∅) by
     convert Rule1_2 _ this ($0 ~~ 1) ($0 ~~ 1 ~L(0)~ 2 ~~ ω) (by decide) (by decide)
   suffices beatable (lv [($1 ~~ 2), ($0 ~~ 1 ~L(0)~ 2 ~~ ω), ($0 ~~ 1), ($2 ~~ ω)] ∅) by
@@ -246,7 +259,9 @@ theorem Prop2_8 :  -- second prop
   apply Lemma1 _ ($0 ~~ 1 ~~ 2 ~~ ω)
   all_goals decide
 
-
+/--!
+Chapter 3
+-/
 
 theorem Prop3_1 : ¬ beatable (lv [($1 ~~ 2), ($3 ~~ 4)] ∅) := by
   apply Axiom2 ($1 ~~ 2) ($3 ~~ 4) _
@@ -294,15 +309,116 @@ theorem Prop3_5 : ¬ beatable (lv [($5 ~~ 6), ($7 ~~ ω), ($0 ~~ 2 ~~ 3), ($1 ~~
   exact h1
 
 theorem Prop3_6 : ¬ beatable (lv [($0 ~~ 1 ~L(0)~ 2 ~~ ω)] <| im [(2, [K(0)])]) := by
-  sorry
+  suffices ¬ beatable (lv [($0 ~~ 1 ~L(0)~ 2), ($2 ~~ ω)] <| im [(2, [K(0)])]) by
+    contrapose! this
+    convert Rule1_3 _ this ($0 ~~ 1 ~L(0)~ 2) ($2 ~~ ω) (by decide) (by decide)
+  suffices ¬ beatable (lv [($0 ~~ 1 ~L(0)~ 2), ($2 ~~ ω)] ∅) by
+    convert Rule3_3 _ this ($2 ~~ ω) (K(0)) (by decide)
+  suffices ¬ beatable (lv [($0 ~~ 1), ($1 ~L(0)~ 2), ($2 ~~ ω)] ∅) by
+    contrapose! this
+    convert Rule1_3 _ this ($0 ~~ 1) ($1 ~L(0)~ 2) (by decide) (by decide)
+  suffices ¬ beatable (lv [($0 ~~ 1), ($2 ~~ ω)] ∅) by
+    convert Rule3_2 _ this 0 1 2 (by decide)
+    decide
+  apply Axiom2 ($0 ~~ 1) ($2 ~~ ω)
+  all_goals decide
 
 theorem Prop3_7 : ¬ beatable (lv [($0 ~L(0)~ 1 ~~ ω), ($0 ~L(1)~ 2 ~~ ω)]
     <| im [(1, [K(1)]), (2, [K(0)])]) := by
-  sorry
+  suffices ¬ beatable (lv [($0 ~L(0)~ 1), ($1 ~~ ω), ($0 ~L(1)~ 2 ~~ ω)]
+      <| im [(1, [K(1)]), (2, [K(0)])]) by
+    contrapose! this
+    convert Rule1_3 _ this ($0 ~L(0)~ 1) ($1 ~~ ω) (by decide) (by decide)
+  suffices ¬ beatable (lv [($0 ~L(0)~ 1), ($1 ~~ ω), ($0 ~L(1)~ 2), ($2 ~~ ω)]
+      <| im [(1, [K(1)]), (2, [K(0)])]) by
+    contrapose! this
+    convert Rule1_3 _ this ($0 ~L(1)~ 2) ($2 ~~ ω) (by decide) (by decide)
+    decide
+  suffices ¬ beatable (lv [($0 ~L(0)~ 1), ($1 ~~ ω), ($0 ~L(1)~ 2), ($2 ~~ ω)]
+      <| im [(2, [K(0)])]) by
+    convert Rule3_3 _ this ($1 ~~ ω) (K(1)) (by decide)
+    decide
+  suffices ¬ beatable (lv [($0 ~L(0)~ 1), ($1 ~~ ω), ($0 ~L(1)~ 2), ($2 ~~ ω)] ∅) by
+    convert Rule3_3 _ this ($2 ~~ ω) (K(0)) (by decide)
+  suffices ¬ beatable (lv [($1 ~~ ω), ($0 ~L(1)~ 2), ($2 ~~ ω)] ∅) by
+    convert Rule3_2 _ this 0 1 0 (by decide)
+    decide
+  suffices ¬ beatable (lv [($1 ~~ ω), ($2 ~~ ω)] ∅) by
+    convert Rule3_2 _ this 1 0 2 (by decide)
+    decide
+  suffices ¬ beatable (lv [($1 ~~ ω), ($2 ~~ ω), ($1 ~~ ω ~~ 2)] ∅) by
+    contrapose! this
+    convert Rule1_1 _ this ($1 ~~ ω ~~ 2)
+    decide
+  suffices ¬ beatable (lv [($2 ~~ ω), ($1 ~~ ω ~~ 2)] ∅) by
+    contrapose! this
+    convert Rule1_2 _ this ($1 ~~ ω) ($1 ~~ ω ~~ 2) (by decide) (by decide)
+  suffices ¬ beatable (lv [($1 ~~ ω ~~ 2)] ∅) by
+    contrapose! this
+    convert Rule1_2 _ this ($2 ~~ ω) ($1 ~~ ω ~~ 2) (by decide) (by decide)
+  suffices ¬ beatable (lv [($0), ($1 ~~ ω ~~ 2)] ∅) by
+    contrapose! this
+    convert Rule1_1 _ this ($0)
+  apply Axiom2 ($0) ($1 ~~ ω ~~ 2) ∅
+  all_goals decide
 
 theorem Prop3_8 : ¬ beatable (lv [($0 ~L(0)~ 1), ($0 ~L(0)~ ω), ($0 ~L(1)~ 2), ($0 ~L(1)~ ω)]
     <| im [(1, [K(1)]), (2, [K(0)])]) := by
-  sorry
+  suffices ¬ beatable (lv [($1 ~~ ω), ($0 ~L(0)~ 1), ($0 ~L(0)~ ω), ($0 ~L(1)~ 2), ($0 ~L(1)~ ω)]
+      <| im [(1, [K(1)]), (2, [K(0)])]) by
+    contrapose! this
+    convert Rule1_1 _ this ($1 ~~ ω)
+  suffices ¬ beatable (lv [($1 ~~ ω), ($0 ~L(0)~ 1), ($0 ~L(0)~ ω), ($0 ~L(1)~ 2), ($0 ~L(1)~ ω)]
+      <| im [(2, [K(0)])]) by
+    convert Rule3_3 _ this ($1 ~~ ω) (K(1)) (by decide)
+    decide
+  suffices ¬ beatable (lv [($2 ~~ ω), ($1 ~~ ω), ($0 ~L(0)~ 1),
+      ($0 ~L(0)~ ω), ($0 ~L(1)~ 2), ($0 ~L(1)~ ω)]
+      <| im [(2, [K(0)])]) by
+    contrapose! this
+    convert Rule1_1 _ this ($2 ~~ ω)
+  suffices ¬ beatable (lv [($2 ~~ ω), ($1 ~~ ω), ($0 ~L(0)~ 1),
+      ($0 ~L(0)~ ω), ($0 ~L(1)~ 2), ($0 ~L(1)~ ω)] ∅) by
+    convert Rule3_3 _ this ($2 ~~ ω) (K(0)) (by decide)
+  suffices ¬ beatable (lv [($2 ~~ ω), ($1 ~~ ω)] ∅) by
+    obtain h1 := Rule3_2 _ this 0 0 1 (by decide)
+    obtain h2 := Rule3_2 _ h1 0 0 ω (by decide)
+    obtain h3 := Rule3_2 _ h2 1 0 2 (by decide)
+    convert Rule3_2 _ h3 1 0 ω (by decide)
+    decide
+  suffices ¬ beatable (lv [($2 ~~ ω), ($1 ~~ ω), ($2 ~~ ω ~~ 1)] ∅) by
+    contrapose! this
+    convert Rule1_1 _ this ($2 ~~ ω ~~ 1)
+    decide
+  suffices ¬ beatable (lv [($1 ~~ ω), ($2 ~~ ω ~~ 1)] ∅) by
+    contrapose! this
+    convert Rule1_2 _ this ($2 ~~ ω) ($2 ~~ ω ~~ 1) (by decide) (by decide)
+  suffices ¬ beatable (lv [($2 ~~ ω ~~ 1)] ∅) by
+    contrapose! this
+    convert Rule1_2 _ this ($1 ~~ ω) ($2 ~~ ω ~~ 1) (by decide) (by decide)
+  suffices ¬ beatable (lv [($0), ($2 ~~ ω ~~ 1)] ∅) by
+    contrapose! this
+    convert Rule1_1 _ this ($0)
+  apply Axiom2 ($0) ($2 ~~ ω ~~ 1) ∅
+  all_goals decide
 
 theorem Prop3_9 : ¬ beatable (lv [($0 ~L(0)~ 1 ~L(0)~ ω)] <| im [(1, [K*(0)])]) := by
-  sorry
+  suffices ¬ beatable (lv [($0 ~L(0)~ 1 ~L(0)~ ω), ($1 ~~ ω)] <| im [(1, [K*(0)])]) by
+    contrapose! this
+    convert Rule1_1 _ this ($1 ~~ ω)
+    decide
+  suffices ¬ beatable (lv [($0 ~L(0)~ 1 ~L(0)~ ω), ($1 ~~ ω)] ∅) by
+    convert Rule3_3 _ this ($1 ~~ ω) (K*(0)) (by decide)
+  suffices ¬ beatable (lv [($0 ~L(0)~ 1), ($1 ~L(0)~ ω), ($1 ~~ ω)] ∅) by
+    contrapose! this
+    convert Rule1_3 _ this ($0 ~L(0)~ 1) ($1 ~L(0)~ ω) (by decide) (by decide)
+  suffices ¬ beatable (lv [($1 ~L(0)~ ω), ($1 ~~ ω)] ∅) by
+    convert Rule3_2 _ this 0 0 1 (by decide)
+  suffices ¬ beatable (lv [($1 ~~ ω)] ∅) by
+    convert Rule3_2 _ this 0 1 ω (by decide)
+  suffices ¬ beatable (lv [($1 ~~ ω), ($2)] ∅) by
+    contrapose! this
+    convert Rule1_1 _ this ($2)
+    decide
+  apply Axiom2 ($1 ~~ ω) ($2) ∅
+  all_goals decide
